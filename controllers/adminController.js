@@ -1,8 +1,15 @@
-
 const User = require('../models/User');
 const DiagnosticCenter = require('../models/DiagnosticCenter');
 const Appointment = require('../models/Appointment');
 const DiagnosticTest = require('../models/DiagnosticTest');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // Get Dashboard Stats
 const getDashboardStats = async (req, res) => {
@@ -12,6 +19,15 @@ const getDashboardStats = async (req, res) => {
     const totalAppointments = await Appointment.countDocuments();
     const totalTests = await DiagnosticTest.countDocuments({ isActive: true });
 
+    // Get pending requests count
+    const pendingRequests = await Appointment.countDocuments({ status: 'scheduled' });
+
+    // Get pending results count
+    const pendingResults = await Appointment.countDocuments({ 
+      status: 'completed',
+      'results.reportUrl': { $exists: false }
+    });
+
     // Recent appointments
     const recentAppointments = await Appointment.find()
       .populate('patientId', 'name email')
@@ -20,43 +36,6 @@ const getDashboardStats = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5);
 
-    // Appointment stats by status
-    const appointmentStats = await Appointment.aggregate([
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    // User stats by role
-    const userStats = await User.aggregate([
-      {
-        $match: { isActive: true }
-      },
-      {
-        $group: {
-          _id: '$role',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    // Revenue stats (if needed)
-    const revenueStats = await Appointment.aggregate([
-      {
-        $match: { status: 'completed' }
-      },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: '$totalAmount' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
     res.status(200).json({
       success: true,
       stats: {
@@ -64,10 +43,16 @@ const getDashboardStats = async (req, res) => {
         totalCenters,
         totalAppointments,
         totalTests,
-        recentAppointments,
-        appointmentStats,
-        userStats,
-        revenueStats: revenueStats[0] || { totalRevenue: 0, count: 0 }
+        pendingRequests,
+        pendingResults,
+        recentAppointments: recentAppointments.map(apt => ({
+          _id: apt._id,
+          patient: { name: apt.patientId.name },
+          center: { name: apt.diagnosticCenterId.name },
+          test: { name: apt.testId.name },
+          appointmentDate: apt.appointmentDate,
+          status: apt.status
+        }))
       }
     });
   } catch (error) {
@@ -75,6 +60,276 @@ const getDashboardStats = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get dashboard stats',
+      error: error.message
+    });
+  }
+};
+
+// Get Customer Requests
+const getCustomerRequests = async (req, res) => {
+  try {
+    const requests = await Appointment.find()
+      .populate('patientId', 'name email phone')
+      .populate('diagnosticCenterId', 'name')
+      .populate('testId', 'name category')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      requests: requests.map(req => ({
+        _id: req._id,
+        patient: {
+          name: req.patientId.name,
+          email: req.patientId.email,
+          phone: req.patientId.phone
+        },
+        center: { name: req.diagnosticCenterId.name },
+        test: {
+          name: req.testId.name,
+          category: req.testId.category
+        },
+        appointmentDate: req.appointmentDate,
+        appointmentTime: req.appointmentTime,
+        status: req.status,
+        totalAmount: req.totalAmount,
+        createdAt: req.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('Get customer requests error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get customer requests',
+      error: error.message
+    });
+  }
+};
+
+// Approve Customer Request
+const approveCustomerRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const appointment = await Appointment.findByIdAndUpdate(
+      id,
+      { status: 'confirmed' },
+      { new: true }
+    ).populate('patientId', 'name email phone')
+     .populate('diagnosticCenterId', 'name')
+     .populate('testId', 'name category');
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Appointment approved successfully',
+      appointment
+    });
+  } catch (error) {
+    console.error('Approve request error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve request',
+      error: error.message
+    });
+  }
+};
+
+// Reject Customer Request
+const rejectCustomerRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const appointment = await Appointment.findByIdAndUpdate(
+      id,
+      { 
+        status: 'cancelled',
+        cancellationReason: 'Rejected by admin'
+      },
+      { new: true }
+    ).populate('patientId', 'name email phone')
+     .populate('diagnosticCenterId', 'name')
+     .populate('testId', 'name category');
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Appointment rejected successfully',
+      appointment
+    });
+  } catch (error) {
+    console.error('Reject request error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject request',
+      error: error.message
+    });
+  }
+};
+
+// Get Test History
+const getTestHistory = async (req, res) => {
+  try {
+    const history = await Appointment.find({
+      status: { $in: ['completed', 'confirmed'] }
+    })
+      .populate('patientId', 'name email phone')
+      .populate('diagnosticCenterId', 'name')
+      .populate('testId', 'name category')
+      .sort({ appointmentDate: -1 });
+
+    res.status(200).json({
+      success: true,
+      history: history.map(item => ({
+        _id: item._id,
+        patient: {
+          name: item.patientId.name,
+          email: item.patientId.email,
+          phone: item.patientId.phone
+        },
+        center: { name: item.diagnosticCenterId.name },
+        test: {
+          name: item.testId.name,
+          category: item.testId.category
+        },
+        appointmentDate: item.appointmentDate,
+        status: item.status,
+        totalAmount: item.totalAmount,
+        results: item.results,
+        completedAt: item.completedAt
+      }))
+    });
+  } catch (error) {
+    console.error('Get test history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get test history',
+      error: error.message
+    });
+  }
+};
+
+// Get Pending Results
+const getPendingResults = async (req, res) => {
+  try {
+    const pendingResults = await Appointment.find({
+      status: 'completed',
+      'results.reportUrl': { $exists: false }
+    })
+      .populate('patientId', 'name email phone')
+      .populate('diagnosticCenterId', 'name')
+      .populate('testId', 'name category')
+      .sort({ completedAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      pendingResults: pendingResults.map(item => ({
+        _id: item._id,
+        patient: {
+          name: item.patientId.name,
+          email: item.patientId.email,
+          phone: item.patientId.phone
+        },
+        center: { name: item.diagnosticCenterId.name },
+        test: {
+          name: item.testId.name,
+          category: item.testId.category
+        },
+        appointmentDate: item.appointmentDate,
+        totalAmount: item.totalAmount,
+        completedAt: item.completedAt || item.appointmentDate
+      }))
+    });
+  } catch (error) {
+    console.error('Get pending results error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get pending results',
+      error: error.message
+    });
+  }
+};
+
+// Upload Test Results
+const uploadTestResults = async (req, res) => {
+  try {
+    const { appointmentId, summary } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    if (!appointmentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Appointment ID is required'
+      });
+    }
+
+    // Upload file to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'auto',
+          folder: 'test-results',
+          public_id: `result_${appointmentId}_${Date.now()}`,
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(file.buffer);
+    });
+
+    // Update appointment with results
+    const appointment = await Appointment.findByIdAndUpdate(
+      appointmentId,
+      {
+        results: {
+          reportUrl: uploadResult.secure_url,
+          summary: summary || '',
+          uploadedAt: new Date()
+        }
+      },
+      { new: true }
+    ).populate('patientId', 'name email')
+     .populate('diagnosticCenterId', 'name')
+     .populate('testId', 'name');
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Results uploaded successfully',
+      appointment,
+      fileUrl: uploadResult.secure_url
+    });
+  } catch (error) {
+    console.error('Upload results error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload results',
       error: error.message
     });
   }
@@ -209,8 +464,6 @@ const updateSystemSettings = async (req, res) => {
   try {
     const { maintenanceMode, allowRegistration, maxAppointmentsPerDay } = req.body;
     
-    // In a real application, you'd store these in a settings collection
-    // For now, we'll just return success
     res.status(200).json({
       success: true,
       message: 'System settings updated successfully',
@@ -235,8 +488,6 @@ const getSystemLogs = async (req, res) => {
   try {
     const { page = 1, limit = 50, level } = req.query;
     
-    // In a real application, you'd have a logs collection
-    // For now, return mock data
     const logs = [
       {
         timestamp: new Date(),
@@ -275,5 +526,11 @@ module.exports = {
   updateUserStatus,
   getAllAppointments,
   updateSystemSettings,
-  getSystemLogs
+  getSystemLogs,
+  getCustomerRequests,
+  approveCustomerRequest,
+  rejectCustomerRequest,
+  getTestHistory,
+  getPendingResults,
+  uploadTestResults
 };

@@ -1,9 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Building2, Calendar, TestTube, Activity } from "lucide-react";
+import { Users, Building2, Calendar, TestTube, Activity, UserCheck, History, Upload, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
 import BackButton from "@/components/BackButton";
 
 interface DashboardStats {
@@ -11,6 +13,8 @@ interface DashboardStats {
   totalCenters: number;
   totalAppointments: number;
   totalTests: number;
+  pendingRequests: number;
+  pendingResults: number;
   recentAppointments: Array<{
     _id: string;
     patient: { name: string };
@@ -41,7 +45,7 @@ const AdminDashboard = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setStats(data);
+        setStats(data.stats);
       } else {
         toast({
           title: "Access Denied",
@@ -84,6 +88,57 @@ const AdminDashboard = () => {
       <div className="container mx-auto px-4 py-8">
         <BackButton />
         <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+
+        {/* Admin Services */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Link to="/admin/customer-requests">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-medium">Customer Requests</CardTitle>
+                <UserCheck className="h-6 w-6 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Approve or reject customer appointment requests
+                </p>
+                {stats.pendingRequests > 0 && (
+                  <Badge variant="destructive">{stats.pendingRequests} pending</Badge>
+                )}
+              </CardContent>
+            </Link>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Link to="/admin/test-history">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-medium">Test History</CardTitle>
+                <History className="h-6 w-6 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  View complete history of customer tests
+                </p>
+              </CardContent>
+            </Link>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Link to="/admin/pending-results">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-medium">Upload Results</CardTitle>
+                <Upload className="h-6 w-6 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Upload test results for completed tests
+                </p>
+                {stats.pendingResults > 0 && (
+                  <Badge variant="secondary">{stats.pendingResults} awaiting results</Badge>
+                )}
+              </CardContent>
+            </Link>
+          </Card>
+        </div>
 
         {/* Stats Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

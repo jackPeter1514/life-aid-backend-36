@@ -13,6 +13,9 @@ import MyAppointments from "./pages/MyAppointments";
 import DiagnosticCenters from "./pages/DiagnosticCenters";
 import DiagnosticTests from "./pages/DiagnosticTests";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminCustomerRequests from "./pages/AdminCustomerRequests";
+import AdminTestHistory from "./pages/AdminTestHistory";
+import AdminPendingResults from "./pages/AdminPendingResults";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +36,9 @@ const App = () => (
           <Route path="/centers" element={<DiagnosticCenters />} />
           <Route path="/tests" element={<DiagnosticTests />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/customer-requests" element={<AdminCustomerRequests />} />
+          <Route path="/admin/test-history" element={<AdminTestHistory />} />
+          <Route path="/admin/pending-results" element={<AdminPendingResults />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
