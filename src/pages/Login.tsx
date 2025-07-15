@@ -10,12 +10,21 @@ import { Link, useNavigate } from "react-router-dom";
 import BackButton from "@/components/BackButton";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("patient");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+    role: "patient"
+  });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,20 +36,22 @@ const Login = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email: formData.email, 
+          password: formData.password 
+        }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
         // Check if the user's role matches the selected role
-        if (data.user.role !== role) {
+        if (data.user.role !== formData.role) {
           toast({
             title: "Access Denied",
-            description: `This account is not registered as a ${role}. Please select the correct role.`,
+            description: `This account is not registered as a ${formData.role}. Please select the correct role.`,
             variant: "destructive",
           });
-          setLoading(false);
           return;
         }
 
@@ -53,11 +64,10 @@ const Login = () => {
         });
 
         // Navigate based on role
-        if (data.user.role === 'admin' || data.user.role === 'super_admin') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+        const redirectPath = data.user.role === 'admin' || data.user.role === 'super_admin' 
+          ? '/admin' 
+          : '/dashboard';
+        navigate(redirectPath);
       } else {
         toast({
           title: "Login Failed",
@@ -89,7 +99,11 @@ const Login = () => {
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <Label className="text-base font-medium">Login as:</Label>
-                <RadioGroup value={role} onValueChange={setRole} className="flex gap-6">
+                <RadioGroup 
+                  value={formData.role} 
+                  onValueChange={(value) => handleInputChange('role', value)} 
+                  className="flex gap-6"
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="patient" id="patient" />
                     <Label htmlFor="patient" className="cursor-pointer">Patient</Label>
@@ -106,8 +120,8 @@ const Login = () => {
                 <Input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
                   required
                 />
               </div>
@@ -117,15 +131,15 @@ const Login = () => {
                 <Input
                   id="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
                   required
                 />
               </div>
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Logging in..." : `Login as ${role === 'patient' ? 'Patient' : 'Admin'}`}
+                {loading ? "Logging in..." : `Login as ${formData.role === 'patient' ? 'Patient' : 'Admin'}`}
               </Button>
               <p className="text-sm text-muted-foreground text-center">
                 Don't have an account?{" "}

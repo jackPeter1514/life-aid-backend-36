@@ -1,7 +1,7 @@
 
-const express = require('express');
-const multer = require('multer');
-const {
+import express from 'express';
+import multer from 'multer';
+import {
   getDashboardStats,
   getAllUsers,
   updateUserStatus,
@@ -14,8 +14,8 @@ const {
   getTestHistory,
   getPendingResults,
   uploadTestResults
-} = require('../controllers/adminController');
-const { protect, authorize, checkPermission } = require('../middleware/auth');
+} from '../controllers/adminController.js';
+import { protect, authorize, checkPermission } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -60,4 +60,4 @@ router.post('/upload-results', upload.single('file'), uploadTestResults);
 router.put('/system/settings', authorize('super_admin'), updateSystemSettings);
 router.get('/system/logs', authorize('super_admin'), getSystemLogs);
 
-module.exports = router;
+export default router;

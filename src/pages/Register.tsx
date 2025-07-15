@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,13 @@ const Register = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -36,18 +44,14 @@ const Register = () => {
     setLoading(true);
 
     try {
+      const { confirmPassword, ...submitData } = formData;
+      
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          role: formData.role,
-          phone: formData.phone,
-        }),
+        body: JSON.stringify(submitData),
       });
 
       const data = await response.json();
@@ -92,7 +96,7 @@ const Register = () => {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
                   required
                 />
               </div>
@@ -102,7 +106,7 @@ const Register = () => {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
                   required
                 />
               </div>
@@ -111,13 +115,13 @@ const Register = () => {
                 <Input
                   id="phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
-                <Select onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <Select onValueChange={(value) => handleInputChange('role', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
@@ -133,7 +137,7 @@ const Register = () => {
                   id="password"
                   type="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
                   required
                 />
               </div>
@@ -143,7 +147,7 @@ const Register = () => {
                   id="confirmPassword"
                   type="password"
                   value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
                   required
                 />
               </div>

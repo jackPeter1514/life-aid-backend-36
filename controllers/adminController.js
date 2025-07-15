@@ -1,8 +1,9 @@
-const User = require('../models/User');
-const DiagnosticCenter = require('../models/DiagnosticCenter');
-const Appointment = require('../models/Appointment');
-const DiagnosticTest = require('../models/DiagnosticTest');
-const cloudinary = require('cloudinary').v2;
+
+import User from '../models/User.js';
+import DiagnosticCenter from '../models/DiagnosticCenter.js';
+import Appointment from '../models/Appointment.js';
+import DiagnosticTest from '../models/DiagnosticTest.js';
+import { v2 as cloudinary } from 'cloudinary';
 
 // Configure Cloudinary
 cloudinary.config({
@@ -12,7 +13,7 @@ cloudinary.config({
 });
 
 // Get Dashboard Stats
-const getDashboardStats = async (req, res) => {
+export const getDashboardStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments({ isActive: true });
     const totalCenters = await DiagnosticCenter.countDocuments({ isActive: true });
@@ -66,7 +67,7 @@ const getDashboardStats = async (req, res) => {
 };
 
 // Get Customer Requests
-const getCustomerRequests = async (req, res) => {
+export const getCustomerRequests = async (req, res) => {
   try {
     const requests = await Appointment.find()
       .populate('patientId', 'name email phone')
@@ -106,7 +107,7 @@ const getCustomerRequests = async (req, res) => {
 };
 
 // Approve Customer Request
-const approveCustomerRequest = async (req, res) => {
+export const approveCustomerRequest = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -141,7 +142,7 @@ const approveCustomerRequest = async (req, res) => {
 };
 
 // Reject Customer Request
-const rejectCustomerRequest = async (req, res) => {
+export const rejectCustomerRequest = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -179,7 +180,7 @@ const rejectCustomerRequest = async (req, res) => {
 };
 
 // Get Test History
-const getTestHistory = async (req, res) => {
+export const getTestHistory = async (req, res) => {
   try {
     const history = await Appointment.find({
       status: { $in: ['completed', 'confirmed'] }
@@ -221,7 +222,7 @@ const getTestHistory = async (req, res) => {
 };
 
 // Get Pending Results
-const getPendingResults = async (req, res) => {
+export const getPendingResults = async (req, res) => {
   try {
     const pendingResults = await Appointment.find({
       status: 'completed',
@@ -262,7 +263,7 @@ const getPendingResults = async (req, res) => {
 };
 
 // Upload Test Results
-const uploadTestResults = async (req, res) => {
+export const uploadTestResults = async (req, res) => {
   try {
     const { appointmentId, summary } = req.body;
     const file = req.file;
@@ -336,7 +337,7 @@ const uploadTestResults = async (req, res) => {
 };
 
 // Get All Users
-const getAllUsers = async (req, res) => {
+export const getAllUsers = async (req, res) => {
   try {
     const { page = 1, limit = 10, role, search } = req.query;
     
@@ -382,7 +383,7 @@ const getAllUsers = async (req, res) => {
 };
 
 // Update User Status
-const updateUserStatus = async (req, res) => {
+export const updateUserStatus = async (req, res) => {
   try {
     const { userId } = req.params;
     const { isActive } = req.body;
@@ -416,7 +417,7 @@ const updateUserStatus = async (req, res) => {
 };
 
 // Get All Appointments (Admin view)
-const getAllAppointments = async (req, res) => {
+export const getAllAppointments = async (req, res) => {
   try {
     const { page = 1, limit = 10, status, centerId } = req.query;
     
@@ -460,7 +461,7 @@ const getAllAppointments = async (req, res) => {
 };
 
 // System Settings (Super Admin only)
-const updateSystemSettings = async (req, res) => {
+export const updateSystemSettings = async (req, res) => {
   try {
     const { maintenanceMode, allowRegistration, maxAppointmentsPerDay } = req.body;
     
@@ -484,7 +485,7 @@ const updateSystemSettings = async (req, res) => {
 };
 
 // Get System Logs (Super Admin only)
-const getSystemLogs = async (req, res) => {
+export const getSystemLogs = async (req, res) => {
   try {
     const { page = 1, limit = 50, level } = req.query;
     
@@ -518,19 +519,4 @@ const getSystemLogs = async (req, res) => {
       error: error.message
     });
   }
-};
-
-module.exports = {
-  getDashboardStats,
-  getAllUsers,
-  updateUserStatus,
-  getAllAppointments,
-  updateSystemSettings,
-  getSystemLogs,
-  getCustomerRequests,
-  approveCustomerRequest,
-  rejectCustomerRequest,
-  getTestHistory,
-  getPendingResults,
-  uploadTestResults
 };
